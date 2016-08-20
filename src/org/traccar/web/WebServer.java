@@ -15,6 +15,7 @@
  */
 package org.traccar.web;
 
+import org.eclipse.jetty.http.HttpCookie;
 import org.eclipse.jetty.http.HttpStatus;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.SessionManager;
@@ -55,6 +56,7 @@ import org.traccar.helper.Log;
 
 import javax.naming.InitialContext;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.io.Writer;
@@ -79,15 +81,31 @@ public class WebServer {
         }
     }
 
-    public WebServer(Config config, DataSource dataSource) {
-        this.config = config;
-        this.dataSource = dataSource;
+    private SessionManager createSessionManager() {
 
-        sessionManager = new HashSessionManager();
+        SessionManager sessionManager = new HashSessionManager(){
+            @Override
+            public HttpCookie getSessionCookie(HttpSession session, String contextPath, boolean requestIsSecure) {
+                HttpCookie cookie =  super.getSessionCookie(session, contextPath, requestIsSecure);
+
+                return new HttpCookie(cookie.getName(), cookie.getValue(), cookie.getDomain(),
+                        "/",
+                        cookie.getMaxAge(), cookie.isHttpOnly(), cookie.isSecure(), cookie.getComment(), cookie.getVersion());
+            }
+        };
         int sessionTimeout = config.getInteger("web.sessionTimeout");
         if (sessionTimeout != 0) {
             sessionManager.setMaxInactiveInterval(sessionTimeout);
         }
+
+        return sessionManager;
+    }
+
+    public WebServer(Config config, DataSource dataSource) {
+        this.config = config;
+        this.dataSource = dataSource;
+
+        sessionManager = createSessionManager();
 
         initServer();
         initApi();
